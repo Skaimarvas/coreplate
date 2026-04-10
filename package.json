@@ -1,0 +1,38 @@
+{
+  "name": "coreplate",
+  "version": "0.1.0",
+  "description": "CLI to scaffold opinionated React projects with data/form/state tooling and docs.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "coreplate": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "DESIGN.md",
+    "CLAUDE.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -w -p tsconfig.json",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "scaffold",
+    "react",
+    "template",
+    "cli",
+    "zustand",
+    "tanstack-query"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  }
+}
