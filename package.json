@@ -26,6 +26,14 @@
     "zustand",
     "tanstack-query"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Skaimarvas/coreplate.git"
+  },
+  "homepage": "https://github.com/Skaimarvas/coreplate#readme",
+  "bugs": {
+    "url": "https://github.com/Skaimarvas/coreplate/issues"
+  },
   "author": "",
   "license": "MIT",
   "engines": {
