@@ -7,6 +7,9 @@ export type PackageSelections = {
   tanstackQuery: boolean;
 };
 
+export type ProjectStructure = "component-based" | "feature-based" | "atomic-based";
+export type ProjectRuntime = "web" | "expo";
+
 const DEFAULT_SELECTIONS: PackageSelections = {
   axios: true,
   zustand: true,
@@ -14,24 +17,91 @@ const DEFAULT_SELECTIONS: PackageSelections = {
   tanstackQuery: true,
 };
 
-export function projectFiles(projectName: string, selectedPackages?: Partial<PackageSelections>): TemplateMap {
+const DEFAULT_PROJECT_STRUCTURE: ProjectStructure = "component-based";
+const DEFAULT_PROJECT_RUNTIME: ProjectRuntime = "web";
+
+export function projectFiles(
+  projectName: string,
+  selectedPackages?: Partial<PackageSelections>,
+  projectStructure?: ProjectStructure,
+  projectRuntime?: ProjectRuntime,
+): TemplateMap {
   const selections: PackageSelections = { ...DEFAULT_SELECTIONS, ...selectedPackages };
+  const resolvedStructure = projectStructure ?? DEFAULT_PROJECT_STRUCTURE;
+  const resolvedRuntime = projectRuntime ?? DEFAULT_PROJECT_RUNTIME;
+
+  const runtimeFiles: TemplateMap = resolvedRuntime === "expo"
+    ? {
+        "package.json": expoPackageJson(projectName, selections),
+        "app.json": expoAppJson(projectName),
+        "babel.config.js": expoBabelConfig(),
+        "tsconfig.json": expoTsconfig(),
+        "App.tsx": expoAppTsx(projectName, selections),
+        "src/screens/HomeScreen.tsx": expoHomeScreen(projectName, selections),
+      }
+    : {
+        "package.json": appPackageJson(projectName, selections),
+        "tsconfig.json": appTsconfig(),
+        "vite.config.ts": appViteConfig(),
+        "index.html": appIndexHtml(projectName),
+        "src/main.tsx": appMainTsx(selections),
+        "src/App.tsx": appTsx(projectName, selections),
+        "src/styles.css": appCss(),
+      };
 
   return {
-    "package.json": appPackageJson(projectName, selections),
+    ...runtimeFiles,
     ".gitignore": appGitignore(),
-    "tsconfig.json": appTsconfig(),
-    "vite.config.ts": appViteConfig(),
-    "index.html": appIndexHtml(projectName),
-    "README.md": appReadme(projectName, selections),
-    "DESIGN.md": appDesign(projectName, selections),
+    "README.md": appReadme(projectName, selections, resolvedStructure, resolvedRuntime),
+    "DESIGN.md": appDesign(projectName, selections, resolvedStructure, resolvedRuntime),
     "CLAUDE.md": appClaude(projectName),
     ".github/copilot-instructions.md": appCopilotInstructions(),
     "skills/frontend-architecture.md": appSkillFrontendArchitecture(),
     "skills/data-fetching.md": appSkillDataFetching(),
-    "src/main.tsx": appMainTsx(selections),
-    "src/App.tsx": appTsx(projectName, selections),
-    "src/styles.css": appCss(),
+    ...structureDraftFiles(resolvedStructure, resolvedRuntime),
+  };
+}
+
+function structureDraftFiles(projectStructure: ProjectStructure, runtime: ProjectRuntime): TemplateMap {
+  const routeFolder = runtime === "expo" ? "screens" : "pages";
+
+  if (projectStructure === "component-based") {
+    return {
+      "src/components/.gitkeep": "",
+      "src/layouts/.gitkeep": "",
+      [`src/${routeFolder}/.gitkeep`]: "",
+      "src/hooks/.gitkeep": "",
+      "src/services/.gitkeep": "",
+      "src/store/.gitkeep": "",
+      "src/types/.gitkeep": "",
+      "src/utils/.gitkeep": "",
+    };
+  }
+
+  if (projectStructure === "atomic-based") {
+    return {
+      "src/components/atoms/.gitkeep": "",
+      "src/components/molecules/.gitkeep": "",
+      "src/components/organisms/.gitkeep": "",
+      "src/components/templates/.gitkeep": "",
+      [`src/${routeFolder}/.gitkeep`]: "",
+      "src/features/.gitkeep": "",
+      "src/services/.gitkeep": "",
+      "src/store/.gitkeep": "",
+    };
+  }
+
+  return {
+    [`src/${routeFolder}/.gitkeep`]: "",
+    "src/features/auth/components/.gitkeep": "",
+    "src/features/auth/hooks/.gitkeep": "",
+    "src/features/auth/services/.gitkeep": "",
+    "src/features/dashboard/components/.gitkeep": "",
+    "src/features/dashboard/hooks/.gitkeep": "",
+    "src/shared/components/.gitkeep": "",
+    "src/shared/hooks/.gitkeep": "",
+    "src/shared/lib/.gitkeep": "",
+    "src/shared/types/.gitkeep": "",
   };
 }
 
@@ -77,6 +147,87 @@ function appPackageJson(projectName: string, selections: PackageSelections): str
     null,
     2,
   ).concat("\n");
+}
+
+function expoPackageJson(projectName: string, selections: PackageSelections): string {
+  const dependencies: Record<string, string> = {
+    expo: "^51.0.39",
+    react: "18.2.0",
+    "react-native": "0.74.5",
+  };
+
+  if (selections.tanstackQuery) {
+    dependencies["@tanstack/react-query"] = "^5.76.2";
+  }
+  if (selections.axios) {
+    dependencies.axios = "^1.9.0";
+  }
+  if (selections.reactHookForm) {
+    dependencies["react-hook-form"] = "^7.56.3";
+  }
+  if (selections.zustand) {
+    dependencies.zustand = "^4.5.2";
+  }
+
+  return JSON.stringify(
+    {
+      name: projectName,
+      private: true,
+      version: "0.1.0",
+      main: "node_modules/expo/AppEntry.js",
+      scripts: {
+        dev: "expo start",
+        android: "expo run:android",
+        ios: "expo run:ios",
+        web: "expo start --web",
+      },
+      dependencies,
+      devDependencies: {
+        "@types/react": "^18.3.11",
+        typescript: "^5.8.3",
+      },
+    },
+    null,
+    2,
+  ).concat("\n");
+}
+
+function expoAppJson(projectName: string): string {
+  return JSON.stringify(
+    {
+      expo: {
+        name: projectName,
+        slug: projectName,
+        version: "1.0.0",
+        orientation: "portrait",
+        userInterfaceStyle: "automatic",
+      },
+    },
+    null,
+    2,
+  ).concat("\n");
+}
+
+function expoBabelConfig(): string {
+  return [
+    "module.exports = function (api) {",
+    "  api.cache(true);",
+    "  return {",
+    "    presets: ['babel-preset-expo'],",
+    "  };",
+    "};",
+  ].join("\n").concat("\n");
+}
+
+function expoTsconfig(): string {
+  return [
+    "{",
+    "  \"extends\": \"expo/tsconfig.base\",",
+    "  \"compilerOptions\": {",
+    "    \"strict\": true",
+    "  }",
+    "}",
+  ].join("\n").concat("\n");
 }
 
 function appGitignore(): string {
@@ -146,14 +297,33 @@ function selectedPackageNames(selections: PackageSelections): string[] {
   return names;
 }
 
-function appReadme(projectName: string, selections: PackageSelections): string {
+function appReadme(
+  projectName: string,
+  selections: PackageSelections,
+  projectStructure: ProjectStructure,
+  runtime: ProjectRuntime,
+): string {
   const selected = selectedPackageNames(selections);
   const packageLines = selected.length > 0 ? selected.map((name) => `- ${name}`) : ["- none (React base only)"];
+  const routeFolder = runtime === "expo" ? "screens" : "pages";
+  const scripts =
+    runtime === "expo"
+      ? ["- npm run dev", "- npm run android", "- npm run ios", "- npm run web"]
+      : ["- npm run dev", "- npm run build", "- npm run preview"];
 
   return [
     `# ${projectName}`,
     "",
     "Scaffolded with coreplate.",
+    "",
+    "## Runtime",
+    "",
+    `- ${runtime === "expo" ? "React Native (Expo)" : "Web (React + Vite)"}`,
+    "",
+    `## Project Structure`,
+    "",
+    `- ${projectStructure}`,
+    `- Route-oriented folder: src/${routeFolder}`,
     "",
     "## Included Packages",
     "",
@@ -161,14 +331,19 @@ function appReadme(projectName: string, selections: PackageSelections): string {
     "",
     "## Scripts",
     "",
-    "- npm run dev",
-    "- npm run build",
-    "- npm run preview",
+    ...scripts,
   ].join("\n").concat("\n");
 }
 
-function appDesign(projectName: string, selections: PackageSelections): string {
-  const architecture: string[] = ["- UI: React + Vite"];
+function appDesign(
+  projectName: string,
+  selections: PackageSelections,
+  projectStructure: ProjectStructure,
+  runtime: ProjectRuntime,
+): string {
+  const architecture: string[] = [
+    runtime === "expo" ? "- UI: React Native + Expo" : "- UI: React + Vite",
+  ];
 
   if (selections.tanstackQuery) {
     architecture.push("- Remote cache: TanStack Query");
@@ -190,11 +365,38 @@ function appDesign(projectName: string, selections: PackageSelections): string {
     "",
     ...architecture,
     "",
+    "## Project Structure",
+    "",
+    `- Runtime: ${runtime}`,
+    `- Mode: ${projectStructure}`,
+    ...projectStructureNotes(projectStructure),
+    "",
     "## Folder Intent",
     "",
     "- src/App.tsx: sample shell and composition point",
     "- skills/: project-specific guidance snippets for humans and AI assistants",
   ].join("\n").concat("\n");
+}
+
+function projectStructureNotes(projectStructure: ProjectStructure): string[] {
+  if (projectStructure === "component-based") {
+    return [
+      "- Group code by UI role (components, pages, hooks, services)",
+      "- Suitable for smaller or medium apps with shared UI focus",
+    ];
+  }
+
+  if (projectStructure === "atomic-based") {
+    return [
+      "- Build UI from atoms -> molecules -> organisms -> templates",
+      "- Use pages for route-level composition",
+    ];
+  }
+
+  return [
+    "- Group code by feature domain first, then by technical role",
+    "- Shared code lives under src/shared",
+  ];
 }
 
 function appClaude(projectName: string): string {
@@ -289,6 +491,195 @@ function appMainTsx(selections: PackageSelections): string {
       ");",
     );
   }
+
+  return lines.join("\n").concat("\n");
+}
+
+function expoAppTsx(projectName: string, selections: PackageSelections): string {
+  const imports = [
+    "import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';",
+    "import { HomeScreen } from './src/screens/HomeScreen';",
+  ];
+
+  const wrappers: string[] = [];
+  if (selections.tanstackQuery) {
+    imports.unshift("import { QueryClient, QueryClientProvider } from '@tanstack/react-query';");
+    wrappers.push("const queryClient = new QueryClient();", "");
+  }
+
+  const lines: string[] = [...imports, "", ...wrappers, "export default function App() {", "  return ("];
+
+  if (selections.tanstackQuery) {
+    lines.push(
+      "    <QueryClientProvider client={queryClient}>",
+      "      <SafeAreaView style={styles.container}>",
+      "        <StatusBar />",
+      `        <HomeScreen title=${JSON.stringify(projectName)} />`,
+      "      </SafeAreaView>",
+      "    </QueryClientProvider>",
+    );
+  } else {
+    lines.push(
+      "    <SafeAreaView style={styles.container}>",
+      "      <StatusBar />",
+      `      <HomeScreen title=${JSON.stringify(projectName)} />`,
+      "    </SafeAreaView>",
+    );
+  }
+
+  lines.push(
+    "  );",
+    "}",
+    "",
+    "const styles = StyleSheet.create({",
+    "  container: {",
+    "    flex: 1,",
+    "    backgroundColor: '#f8fbff',",
+    "  },",
+    "});",
+  );
+
+  return lines.join("\n").concat("\n");
+}
+
+function expoHomeScreen(projectName: string, selections: PackageSelections): string {
+  const lines: string[] = [
+    "import { useState } from 'react';",
+    "import { Button, StyleSheet, Text, TextInput, View } from 'react-native';",
+  ];
+
+  if (selections.axios) {
+    lines.push("import axios from 'axios';");
+  }
+  if (selections.reactHookForm) {
+    lines.push("import { Controller, useForm } from 'react-hook-form';");
+  }
+  if (selections.zustand) {
+    lines.push("import { create } from 'zustand';");
+  }
+
+  lines.push("", "type Props = {", "  title: string;", "};", "");
+
+  if (selections.zustand) {
+    lines.push(
+      "type CounterStore = {",
+      "  count: number;",
+      "  increment: () => void;",
+      "};",
+      "",
+      "const useCounterStore = create<CounterStore>((set) => ({",
+      "  count: 0,",
+      "  increment: () => set((state) => ({ count: state.count + 1 })),",
+      "}));",
+      "",
+    );
+  }
+
+  if (selections.reactHookForm) {
+    lines.push("type DemoForm = {", "  email: string;", "};", "");
+  }
+
+  if (selections.axios) {
+    lines.push(
+      "const http = axios.create({",
+      "  baseURL: 'https://example.com/api',",
+      "});",
+      "",
+    );
+  }
+
+  lines.push("export function HomeScreen({ title }: Props) {");
+
+  if (selections.zustand) {
+    lines.push("  const { count, increment } = useCounterStore();");
+  } else {
+    lines.push("  const [count, setCount] = useState(0);");
+  }
+
+  if (selections.reactHookForm) {
+    lines.push("  const { control, handleSubmit } = useForm<DemoForm>({ defaultValues: { email: '' } });");
+  }
+
+  if (selections.reactHookForm && selections.axios) {
+    lines.push(
+      "",
+      "  const onSubmit = handleSubmit(async (values) => {",
+      "    console.log('Form values', values);",
+      "    await http.get('/health').catch(() => undefined);",
+      "  });",
+    );
+  } else if (selections.reactHookForm) {
+    lines.push(
+      "",
+      "  const onSubmit = handleSubmit((values) => {",
+      "    console.log('Form values', values);",
+      "  });",
+    );
+  }
+
+  lines.push("", "  return (", "    <View style={styles.container}>", "      <Text style={styles.title}>{title}</Text>");
+
+  if (selections.zustand) {
+    lines.push(
+      "      <Text style={styles.text}>Count: {count}</Text>",
+      "      <Button title=\"Increment\" onPress={increment} />",
+    );
+  } else {
+    lines.push(
+      "      <Text style={styles.text}>Count: {count}</Text>",
+      "      <Button title=\"Increment\" onPress={() => setCount((value) => value + 1)} />",
+    );
+  }
+
+  if (selections.reactHookForm) {
+    lines.push(
+      "      <Text style={styles.sectionTitle}>Form Demo</Text>",
+      "      <Controller",
+      "        control={control}",
+      "        name=\"email\"",
+      "        rules={{ required: true }}",
+      "        render={({ field: { onChange, value } }) => (",
+      "          <TextInput",
+      "            placeholder=\"Email\"",
+      "            value={value}",
+      "            onChangeText={onChange}",
+      "            style={styles.input}",
+      "            autoCapitalize=\"none\"",
+      "          />",
+      "        )}",
+      "      />",
+      "      <Button title=\"Submit\" onPress={() => void onSubmit()} />",
+    );
+  }
+
+  lines.push("    </View>", "  );", "}", "", "const styles = StyleSheet.create({");
+  lines.push(
+    "  container: {",
+    "    flex: 1,",
+    "    padding: 16,",
+    "    gap: 12,",
+    "  },",
+    "  title: {",
+    "    fontSize: 28,",
+    "    fontWeight: '700',",
+    "  },",
+    "  text: {",
+    "    fontSize: 16,",
+    "  },",
+    "  sectionTitle: {",
+    "    marginTop: 10,",
+    "    fontSize: 18,",
+    "    fontWeight: '600',",
+    "  },",
+    "  input: {",
+    "    borderWidth: 1,",
+    "    borderColor: '#ccd4e0',",
+    "    borderRadius: 8,",
+    "    paddingHorizontal: 12,",
+    "    paddingVertical: 10,",
+    "  },",
+    "});",
+  );
 
   return lines.join("\n").concat("\n");
 }

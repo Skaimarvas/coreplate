@@ -2,7 +2,10 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createProject } from "./generator";
-import type { PackageSelections } from "./templates.js";
+import type { PackageSelections, ProjectRuntime, ProjectStructure } from "./templates.js";
+
+const DEFAULT_PROJECT_STRUCTURE: ProjectStructure = "component-based";
+const DEFAULT_PROJECT_RUNTIME: ProjectRuntime = "web";
 
 type CliOptions = {
   name: string;
@@ -10,6 +13,8 @@ type CliOptions = {
   force: boolean;
   interactive: boolean;
   selectedPackages: Partial<PackageSelections>;
+  projectStructure?: ProjectStructure;
+  projectRuntime?: ProjectRuntime;
 };
 
 function printHelp(): void {
@@ -24,6 +29,9 @@ function printHelp(): void {
     "  --force        Allow writing into a non-empty directory",
     "  --yes          Skip prompts and install all optional packages",
     "  --no-interactive  Skip prompts and use provided flags/defaults",
+    "  --runtime <web|expo>",
+    "  --expo         Shortcut for --runtime expo",
+    "  --structure <component|feature|atomic>",
     "  --no-axios | --no-zustand | --no-react-hook-form | --no-tanstack-query",
     "  --help         Show this help",
   ].join("\n");
@@ -42,6 +50,8 @@ function parseArgs(argv: string[]): CliOptions {
   let force = false;
   let interactive = true;
   const selectedPackages: Partial<PackageSelections> = {};
+  let projectStructure: ProjectStructure | undefined;
+  let projectRuntime: ProjectRuntime | undefined;
 
   for (let i = 1; i < argv.length; i += 1) {
     const token = argv[i];
@@ -62,6 +72,31 @@ function parseArgs(argv: string[]): CliOptions {
 
     if (token === "--no-interactive") {
       interactive = false;
+      continue;
+    }
+
+    if (token === "--structure") {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --structure");
+      }
+      projectStructure = parseProjectStructure(value);
+      i += 1;
+      continue;
+    }
+
+    if (token === "--runtime") {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --runtime");
+      }
+      projectRuntime = parseProjectRuntime(value);
+      i += 1;
+      continue;
+    }
+
+    if (token === "--expo") {
+      projectRuntime = "expo";
       continue;
     }
 
@@ -122,7 +157,55 @@ function parseArgs(argv: string[]): CliOptions {
     throw new Error(`Unknown option: ${token}`);
   }
 
-  return { name, targetDir, force, interactive, selectedPackages };
+  return { name, targetDir, force, interactive, selectedPackages, projectStructure, projectRuntime };
+}
+
+function parseProjectRuntime(raw: string): ProjectRuntime {
+  switch (raw.toLowerCase()) {
+    case "web":
+      return "web";
+    case "expo":
+    case "react-native":
+      return "expo";
+    default:
+      throw new Error("Invalid --runtime value. Use web|expo");
+  }
+}
+
+function projectRuntimeLabel(value: ProjectRuntime): string {
+  switch (value) {
+    case "web":
+      return "Web (React + Vite)";
+    case "expo":
+      return "React Native (Expo)";
+  }
+}
+
+function parseProjectStructure(raw: string): ProjectStructure {
+  switch (raw.toLowerCase()) {
+    case "component":
+    case "component-based":
+      return "component-based";
+    case "feature":
+    case "feature-based":
+      return "feature-based";
+    case "atomic":
+    case "atomic-based":
+      return "atomic-based";
+    default:
+      throw new Error("Invalid --structure value. Use component|feature|atomic");
+  }
+}
+
+function projectStructureLabel(value: ProjectStructure): string {
+  switch (value) {
+    case "component-based":
+      return "Component-based";
+    case "feature-based":
+      return "Feature-based";
+    case "atomic-based":
+      return "Atomic-based";
+  }
 }
 
 function packageLabel(key: keyof PackageSelections): string {
@@ -155,6 +238,62 @@ async function askYesNo(question: string, defaultYes: boolean): Promise<boolean>
       return false;
     }
     return defaultYes;
+  } finally {
+    rl.close();
+  }
+}
+
+async function askProjectStructure(defaultValue: ProjectStructure): Promise<ProjectStructure> {
+  const rl = createInterface({ input, output });
+  const prompt = [
+    "Choose project structure:",
+    "  1) component-based",
+    "  2) feature-based",
+    "  3) atomic-based",
+    `Enter choice [1-3] (default: ${defaultValue}): `,
+  ].join("\n");
+
+  try {
+    const answer = (await rl.question(prompt)).trim().toLowerCase();
+    if (answer.length === 0) {
+      return defaultValue;
+    }
+    if (answer === "1" || answer === "component" || answer === "component-based") {
+      return "component-based";
+    }
+    if (answer === "2" || answer === "feature" || answer === "feature-based") {
+      return "feature-based";
+    }
+    if (answer === "3" || answer === "atomic" || answer === "atomic-based") {
+      return "atomic-based";
+    }
+    return defaultValue;
+  } finally {
+    rl.close();
+  }
+}
+
+async function askProjectRuntime(defaultValue: ProjectRuntime): Promise<ProjectRuntime> {
+  const rl = createInterface({ input, output });
+  const prompt = [
+    "Choose project runtime:",
+    "  1) web (React + Vite)",
+    "  2) expo (React Native)",
+    `Enter choice [1-2] (default: ${defaultValue}): `,
+  ].join("\n");
+
+  try {
+    const answer = (await rl.question(prompt)).trim().toLowerCase();
+    if (answer.length === 0) {
+      return defaultValue;
+    }
+    if (answer === "1" || answer === "web") {
+      return "web";
+    }
+    if (answer === "2" || answer === "expo" || answer === "react-native") {
+      return "expo";
+    }
+    return defaultValue;
   } finally {
     rl.close();
   }
@@ -200,13 +339,43 @@ function printSelectionSummary(selections: PackageSelections): void {
   console.log(`  TanStack Query: ${selections.tanstackQuery ? "yes" : "no"}`);
 }
 
+async function resolveProjectStructure(options: CliOptions): Promise<ProjectStructure> {
+  if (options.projectStructure) {
+    return options.projectStructure;
+  }
+
+  const isInteractive = options.interactive && process.stdin.isTTY;
+  if (!isInteractive) {
+    return DEFAULT_PROJECT_STRUCTURE;
+  }
+
+  return askProjectStructure(DEFAULT_PROJECT_STRUCTURE);
+}
+
+async function resolveProjectRuntime(options: CliOptions): Promise<ProjectRuntime> {
+  if (options.projectRuntime) {
+    return options.projectRuntime;
+  }
+
+  const isInteractive = options.interactive && process.stdin.isTTY;
+  if (!isInteractive) {
+    return DEFAULT_PROJECT_RUNTIME;
+  }
+
+  return askProjectRuntime(DEFAULT_PROJECT_RUNTIME);
+}
+
 async function main(): Promise<void> {
   try {
     const options = parseArgs(process.argv.slice(2));
     const selections = await resolvePackageSelections(options);
+    const projectRuntime = await resolveProjectRuntime(options);
+    const projectStructure = await resolveProjectStructure(options);
 
     console.log("\ncoreplate project setup");
     console.log(`Project name: ${options.name}`);
+    console.log(`Project runtime: ${projectRuntimeLabel(projectRuntime)}`);
+    console.log(`Project structure: ${projectStructureLabel(projectStructure)}`);
     printSelectionSummary(selections);
 
     const outputPath = await createProject({
@@ -214,6 +383,8 @@ async function main(): Promise<void> {
       targetDirectory: options.targetDir,
       force: options.force,
       selectedPackages: selections,
+      projectStructure,
+      projectRuntime,
     });
 
     console.log(`Project created at ${outputPath}`);
