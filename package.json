@@ -1,6 +1,6 @@
 {
   "name": "coreplate",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "CLI to scaffold opinionated React projects with data/form/state tooling and docs.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

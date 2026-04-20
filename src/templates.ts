@@ -51,6 +51,7 @@ export function projectFiles(
 
   return {
     ...runtimeFiles,
+    ...(selections.axios ? { "src/services/api.ts": axiosApiTs(resolvedRuntime) } : {}),
     ".gitignore": appGitignore(),
     "README.md": appReadme(projectName, selections, resolvedStructure, resolvedRuntime),
     "DESIGN.md": appDesign(projectName, selections, resolvedStructure, resolvedRuntime),
@@ -227,6 +228,24 @@ function expoTsconfig(): string {
     "    \"strict\": true",
     "  }",
     "}",
+  ].join("\n").concat("\n");
+}
+
+function axiosApiTs(runtime: ProjectRuntime): string {
+  const baseUrl =
+    runtime === "expo"
+      ? "'https://example.com/api'"
+      : "import.meta.env.VITE_API_BASE_URL ?? 'https://example.com/api'";
+
+  return [
+    "import axios from 'axios';",
+    "",
+    "export const api = axios.create({",
+    `  baseURL: ${baseUrl},`,
+    "  headers: {",
+    "    'Content-Type': 'application/json',",
+    "  },",
+    "});",
   ].join("\n").concat("\n");
 }
 
@@ -549,7 +568,7 @@ function expoHomeScreen(projectName: string, selections: PackageSelections): str
   ];
 
   if (selections.axios) {
-    lines.push("import axios from 'axios';");
+    lines.push("import { api } from '../services/api';");
   }
   if (selections.reactHookForm) {
     lines.push("import { Controller, useForm } from 'react-hook-form';");
@@ -579,15 +598,6 @@ function expoHomeScreen(projectName: string, selections: PackageSelections): str
     lines.push("type DemoForm = {", "  email: string;", "};", "");
   }
 
-  if (selections.axios) {
-    lines.push(
-      "const http = axios.create({",
-      "  baseURL: 'https://example.com/api',",
-      "});",
-      "",
-    );
-  }
-
   lines.push("export function HomeScreen({ title }: Props) {");
 
   if (selections.zustand) {
@@ -605,7 +615,7 @@ function expoHomeScreen(projectName: string, selections: PackageSelections): str
       "",
       "  const onSubmit = handleSubmit(async (values) => {",
       "    console.log('Form values', values);",
-      "    await http.get('/health').catch(() => undefined);",
+      "    await api.get('/health').catch(() => undefined);",
       "  });",
     );
   } else if (selections.reactHookForm) {
@@ -688,7 +698,7 @@ function appTsx(projectName: string, selections: PackageSelections): string {
   const lines: string[] = [];
 
   if (selections.axios) {
-    lines.push("import axios from 'axios';");
+    lines.push("import { api } from './services/api';");
   }
   if (selections.reactHookForm) {
     lines.push("import { useForm } from 'react-hook-form';");
@@ -720,15 +730,6 @@ function appTsx(projectName: string, selections: PackageSelections): string {
     lines.push("type DemoForm = {", "  email: string;", "};", "");
   }
 
-  if (selections.axios) {
-    lines.push(
-      "const http = axios.create({",
-      "  baseURL: 'https://example.com/api',",
-      "});",
-      "",
-    );
-  }
-
   lines.push("export function App() {");
 
   if (selections.zustand) {
@@ -743,7 +744,7 @@ function appTsx(projectName: string, selections: PackageSelections): string {
       "",
       "  const onSubmit = handleSubmit(async (values) => {",
       "    console.log('Form values', values);",
-      "    await http.get('/health').catch(() => undefined);",
+      "    await api.get('/health').catch(() => undefined);",
       "  });",
     );
   } else if (selections.reactHookForm) {
@@ -757,7 +758,7 @@ function appTsx(projectName: string, selections: PackageSelections): string {
     lines.push(
       "",
       "  const pingApi = async () => {",
-      "    await http.get('/health').catch(() => undefined);",
+      "    await api.get('/health').catch(() => undefined);",
       "  };",
     );
   }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createProject } from "./generator";
@@ -23,6 +24,7 @@ function printHelp(): void {
     "",
     "Usage:",
     "  coreplate <project-name> [--dir <path>] [--force]",
+    "  coreplate .                         Scaffold into the current directory",
     "",
     "Options:",
     "  --dir <path>   Target directory. Defaults to ./<project-name>",
@@ -45,8 +47,9 @@ function parseArgs(argv: string[]): CliOptions {
     process.exit(0);
   }
 
-  const name = argv[0];
-  let targetDir: string | undefined;
+  const isDot = argv[0] === ".";
+  const name = isDot ? path.basename(process.cwd()) : argv[0];
+  let targetDir: string | undefined = isDot ? "." : undefined;
   let force = false;
   let interactive = true;
   const selectedPackages: Partial<PackageSelections> = {};
