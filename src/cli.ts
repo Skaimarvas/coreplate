@@ -387,7 +387,7 @@ async function askSrcFolders(
   const listLines = SRC_FOLDER_KEYS.map((k, i) => `  ${i + 1}) ${folderLabel(k)}`);
 
   const prompt = [
-    "Choose src/ subdirectories to create:",
+    "Choose which subdirectories to create:",
     ...listLines,
     `Enter choices [1-${SRC_FOLDER_KEYS.length}] comma-separated (default: ${defaultIndices}): `,
   ].join("\n");
@@ -420,27 +420,36 @@ async function resolveSrcFolders(
   options: CliOptions,
   projectStructure: ProjectStructure,
   projectRuntime: ProjectRuntime,
-): Promise<SrcFolderSelections> {
+): Promise<{ useSrc: boolean; folders: SrcFolderSelections }> {
   const defaults = defaultSrcFolders(projectStructure);
+  const isInteractive = options.interactive && process.stdin.isTTY;
+
+  if (!isInteractive) {
+    return { useSrc: true, folders: defaults };
+  }
+
+  const useSrc = await askYesNo("Create a src/ folder?", true);
 
   if (projectStructure === "feature-based") {
-    return defaults;
+    return { useSrc, folders: defaults };
   }
 
-  const isInteractive = options.interactive && process.stdin.isTTY;
-  if (!isInteractive) {
-    return defaults;
-  }
-
-  return askSrcFolders(projectRuntime, defaults);
+  const folders = await askSrcFolders(projectRuntime, defaults);
+  return { useSrc, folders };
 }
 
-function printSrcFolderSummary(srcFolders: SrcFolderSelections, runtime: ProjectRuntime): void {
+function printSrcFolderSummary(
+  srcFolders: SrcFolderSelections,
+  runtime: ProjectRuntime,
+  useSrc: boolean,
+): void {
+  const base = useSrc ? "src/" : "";
   const routeFolder = runtime === "expo" ? "screens" : "pages";
   const active = SRC_FOLDER_KEYS
     .filter((k) => srcFolders[k])
-    .map((k) => (k === "pages" ? routeFolder : k));
-  console.log(`\nSrc folders: ${active.length > 0 ? active.join(", ") : "none"}`);
+    .map((k) => `${base}${k === "pages" ? routeFolder : k}`);
+  console.log(`\nUse src/ folder: ${useSrc ? "yes" : "no"}`);
+  console.log(`Folders: ${active.length > 0 ? active.join(", ") : "none"}`);
 }
 
 async function main(): Promise<void> {
@@ -449,14 +458,14 @@ async function main(): Promise<void> {
     const selections = await resolvePackageSelections(options);
     const projectRuntime = await resolveProjectRuntime(options);
     const projectStructure = await resolveProjectStructure(options);
-    const srcFolders = await resolveSrcFolders(options, projectStructure, projectRuntime);
+    const { useSrc, folders: srcFolders } = await resolveSrcFolders(options, projectStructure, projectRuntime);
 
     console.log("\ncoreplate project setup");
     console.log(`Project name: ${options.name}`);
     console.log(`Project runtime: ${projectRuntimeLabel(projectRuntime)}`);
     console.log(`Project structure: ${projectStructureLabel(projectStructure)}`);
     printSelectionSummary(selections);
-    printSrcFolderSummary(srcFolders, projectRuntime);
+    printSrcFolderSummary(srcFolders, projectRuntime, useSrc);
 
     const outputPath = await createProject({
       projectName: options.name,
@@ -466,6 +475,7 @@ async function main(): Promise<void> {
       projectStructure,
       projectRuntime,
       srcFolders,
+      useSrc,
     });
 
     console.log(`Project created at ${outputPath}`);

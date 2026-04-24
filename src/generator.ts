@@ -11,6 +11,7 @@ export type CreateProjectOptions = {
   projectStructure?: ProjectStructure;
   projectRuntime?: ProjectRuntime;
   srcFolders?: SrcFolderSelections;
+  useSrc?: boolean;
 };
 
 export async function createProject(options: CreateProjectOptions): Promise<string> {
@@ -36,6 +37,7 @@ export async function createProject(options: CreateProjectOptions): Promise<stri
     options.projectStructure,
     options.projectRuntime,
     options.srcFolders,
+    options.useSrc,
   );
   const entries = Object.entries(files) as Array<[string, string]>;
 

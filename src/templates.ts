@@ -68,6 +68,7 @@ export function projectFiles(
   projectStructure?: ProjectStructure,
   projectRuntime?: ProjectRuntime,
   srcFolders?: Partial<SrcFolderSelections>,
+  useSrc?: boolean,
 ): TemplateMap {
   const selections: PackageSelections = { ...DEFAULT_SELECTIONS, ...selectedPackages };
   const resolvedStructure = projectStructure ?? DEFAULT_PROJECT_STRUCTURE;
@@ -105,7 +106,7 @@ export function projectFiles(
     ...structureDraftFiles(resolvedStructure, resolvedRuntime, {
       ...defaultSrcFolders(resolvedStructure),
       ...srcFolders,
-    }),
+    }, useSrc ?? true),
   };
 }
 
@@ -113,48 +114,50 @@ function structureDraftFiles(
   projectStructure: ProjectStructure,
   runtime: ProjectRuntime,
   srcFolders: SrcFolderSelections,
+  useSrc: boolean,
 ): TemplateMap {
+  const base = useSrc ? "src/" : "";
   const routeFolder = runtime === "expo" ? "screens" : "pages";
   const files: TemplateMap = {};
 
   if (projectStructure === "feature-based") {
-    if (srcFolders.pages) files[`src/${routeFolder}/.gitkeep`] = "";
-    files["src/features/auth/components/.gitkeep"] = "";
-    files["src/features/auth/hooks/.gitkeep"] = "";
-    files["src/features/auth/services/.gitkeep"] = "";
-    files["src/features/dashboard/components/.gitkeep"] = "";
-    files["src/features/dashboard/hooks/.gitkeep"] = "";
-    files["src/shared/components/.gitkeep"] = "";
-    files["src/shared/hooks/.gitkeep"] = "";
-    files["src/shared/lib/.gitkeep"] = "";
-    files["src/shared/types/.gitkeep"] = "";
+    if (srcFolders.pages) files[`${base}${routeFolder}/.gitkeep`] = "";
+    files[`${base}features/auth/components/.gitkeep`] = "";
+    files[`${base}features/auth/hooks/.gitkeep`] = "";
+    files[`${base}features/auth/services/.gitkeep`] = "";
+    files[`${base}features/dashboard/components/.gitkeep`] = "";
+    files[`${base}features/dashboard/hooks/.gitkeep`] = "";
+    files[`${base}shared/components/.gitkeep`] = "";
+    files[`${base}shared/hooks/.gitkeep`] = "";
+    files[`${base}shared/lib/.gitkeep`] = "";
+    files[`${base}shared/types/.gitkeep`] = "";
     return files;
   }
 
   if (projectStructure === "atomic-based") {
     if (srcFolders.components) {
-      files["src/components/atoms/.gitkeep"] = "";
-      files["src/components/molecules/.gitkeep"] = "";
-      files["src/components/organisms/.gitkeep"] = "";
-      files["src/components/templates/.gitkeep"] = "";
+      files[`${base}components/atoms/.gitkeep`] = "";
+      files[`${base}components/molecules/.gitkeep`] = "";
+      files[`${base}components/organisms/.gitkeep`] = "";
+      files[`${base}components/templates/.gitkeep`] = "";
     }
-    if (srcFolders.pages) files[`src/${routeFolder}/.gitkeep`] = "";
-    files["src/features/.gitkeep"] = "";
+    if (srcFolders.pages) files[`${base}${routeFolder}/.gitkeep`] = "";
+    files[`${base}features/.gitkeep`] = "";
   } else {
-    if (srcFolders.components) files["src/components/.gitkeep"] = "";
-    if (srcFolders.pages) files[`src/${routeFolder}/.gitkeep`] = "";
-    if (srcFolders.layouts) files["src/layouts/.gitkeep"] = "";
+    if (srcFolders.components) files[`${base}components/.gitkeep`] = "";
+    if (srcFolders.pages) files[`${base}${routeFolder}/.gitkeep`] = "";
+    if (srcFolders.layouts) files[`${base}layouts/.gitkeep`] = "";
   }
 
-  if (srcFolders.hooks) files["src/hooks/.gitkeep"] = "";
-  if (srcFolders.services) files["src/services/.gitkeep"] = "";
-  if (srcFolders.store) files["src/store/.gitkeep"] = "";
-  if (srcFolders.types) files["src/types/.gitkeep"] = "";
-  if (srcFolders.utils) files["src/utils/.gitkeep"] = "";
-  if (srcFolders.lib) files["src/lib/.gitkeep"] = "";
-  if (srcFolders.constants) files["src/constants/.gitkeep"] = "";
-  if (srcFolders.context) files["src/context/.gitkeep"] = "";
-  if (srcFolders.assets) files["src/assets/.gitkeep"] = "";
+  if (srcFolders.hooks) files[`${base}hooks/.gitkeep`] = "";
+  if (srcFolders.services) files[`${base}services/.gitkeep`] = "";
+  if (srcFolders.store) files[`${base}store/.gitkeep`] = "";
+  if (srcFolders.types) files[`${base}types/.gitkeep`] = "";
+  if (srcFolders.utils) files[`${base}utils/.gitkeep`] = "";
+  if (srcFolders.lib) files[`${base}lib/.gitkeep`] = "";
+  if (srcFolders.constants) files[`${base}constants/.gitkeep`] = "";
+  if (srcFolders.context) files[`${base}context/.gitkeep`] = "";
+  if (srcFolders.assets) files[`${base}assets/.gitkeep`] = "";
 
   return files;
 }

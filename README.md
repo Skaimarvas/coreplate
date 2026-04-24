@@ -43,17 +43,20 @@ The CLI asks the following questions interactively:
 
 1. **Runtime** — `web` (React + Vite) or `expo` (React Native)
 2. **Structure** — `component-based`, `feature-based`, or `atomic-based`
-3. **src/ folders** — pick which subdirectories to create (comma-separated numbers):
+3. **Use src/ folder?** — yes (default) or no
+   - **Yes** → folders are created under `src/` (e.g. `src/components/`, `src/hooks/`)
+   - **No** → folders are created directly at the project root (e.g. `components/`, `hooks/`)
+4. **Which subdirectories to create?** — comma-separated numbers (skipped for feature-based):
    ```
-   Choose src/ subdirectories to create:
+   Choose which subdirectories to create:
      1) components   5) services   9)  lib
      2) hooks        6) store     10) constants
      3) utils        7) pages     11) context
      4) types        8) layouts   12) assets
    Enter choices [1-12] comma-separated (default: 1,2,3,4,5,6,7,8):
    ```
-   > Feature-based structure uses a fixed nested layout and skips this prompt.
-4. **Optional packages** — Axios, Zustand, React Hook Form, TanStack Query (each Y/n)
+   > Feature-based structure always uses a fixed nested `features/` + `shared/` layout.
+5. **Optional packages** — Axios, Zustand, React Hook Form, TanStack Query (each Y/n)
 
 ### Axios api.ts
 
