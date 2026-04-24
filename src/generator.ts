@@ -1,7 +1,7 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { projectFiles } from "./templates.js";
-import type { PackageSelections, ProjectRuntime, ProjectStructure } from "./templates.js";
+import type { PackageSelections, ProjectRuntime, ProjectStructure, SrcFolderSelections } from "./templates.js";
 
 export type CreateProjectOptions = {
   projectName: string;
@@ -10,6 +10,7 @@ export type CreateProjectOptions = {
   selectedPackages?: PackageSelections;
   projectStructure?: ProjectStructure;
   projectRuntime?: ProjectRuntime;
+  srcFolders?: SrcFolderSelections;
 };
 
 export async function createProject(options: CreateProjectOptions): Promise<string> {
@@ -34,6 +35,7 @@ export async function createProject(options: CreateProjectOptions): Promise<stri
     options.selectedPackages,
     options.projectStructure,
     options.projectRuntime,
+    options.srcFolders,
   );
   const entries = Object.entries(files) as Array<[string, string]>;
 

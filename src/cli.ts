@@ -3,7 +3,8 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createProject } from "./generator";
-import type { PackageSelections, ProjectRuntime, ProjectStructure } from "./templates.js";
+import type { PackageSelections, ProjectRuntime, ProjectStructure, SrcFolderSelections } from "./templates.js";
+import { SRC_FOLDER_KEYS, defaultSrcFolders } from "./templates.js";
 
 const DEFAULT_PROJECT_STRUCTURE: ProjectStructure = "component-based";
 const DEFAULT_PROJECT_RUNTIME: ProjectRuntime = "web";
@@ -368,18 +369,94 @@ async function resolveProjectRuntime(options: CliOptions): Promise<ProjectRuntim
   return askProjectRuntime(DEFAULT_PROJECT_RUNTIME);
 }
 
+async function askSrcFolders(
+  runtime: ProjectRuntime,
+  defaults: SrcFolderSelections,
+): Promise<SrcFolderSelections> {
+  const rl = createInterface({ input, output });
+  const routeFolder = runtime === "expo" ? "screens" : "pages";
+
+  const folderLabel = (key: keyof SrcFolderSelections): string =>
+    key === "pages" ? routeFolder : key;
+
+  const defaultIndices = SRC_FOLDER_KEYS
+    .map((k, i) => (defaults[k] ? String(i + 1) : null))
+    .filter(Boolean)
+    .join(",");
+
+  const listLines = SRC_FOLDER_KEYS.map((k, i) => `  ${i + 1}) ${folderLabel(k)}`);
+
+  const prompt = [
+    "Choose src/ subdirectories to create:",
+    ...listLines,
+    `Enter choices [1-${SRC_FOLDER_KEYS.length}] comma-separated (default: ${defaultIndices}): `,
+  ].join("\n");
+
+  try {
+    const answer = (await rl.question(prompt)).trim();
+    if (answer.length === 0) {
+      return defaults;
+    }
+
+    const chosen = new Set(
+      answer.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => n >= 1 && n <= SRC_FOLDER_KEYS.length),
+    );
+
+    const result: SrcFolderSelections = {
+      components: false, hooks: false, utils: false, types: false,
+      services: false, store: false, pages: false, layouts: false,
+      lib: false, constants: false, context: false, assets: false,
+    };
+    SRC_FOLDER_KEYS.forEach((key, i) => {
+      result[key] = chosen.has(i + 1);
+    });
+    return result;
+  } finally {
+    rl.close();
+  }
+}
+
+async function resolveSrcFolders(
+  options: CliOptions,
+  projectStructure: ProjectStructure,
+  projectRuntime: ProjectRuntime,
+): Promise<SrcFolderSelections> {
+  const defaults = defaultSrcFolders(projectStructure);
+
+  if (projectStructure === "feature-based") {
+    return defaults;
+  }
+
+  const isInteractive = options.interactive && process.stdin.isTTY;
+  if (!isInteractive) {
+    return defaults;
+  }
+
+  return askSrcFolders(projectRuntime, defaults);
+}
+
+function printSrcFolderSummary(srcFolders: SrcFolderSelections, runtime: ProjectRuntime): void {
+  const routeFolder = runtime === "expo" ? "screens" : "pages";
+  const active = SRC_FOLDER_KEYS
+    .filter((k) => srcFolders[k])
+    .map((k) => (k === "pages" ? routeFolder : k));
+  console.log(`\nSrc folders: ${active.length > 0 ? active.join(", ") : "none"}`);
+}
+
 async function main(): Promise<void> {
   try {
     const options = parseArgs(process.argv.slice(2));
     const selections = await resolvePackageSelections(options);
     const projectRuntime = await resolveProjectRuntime(options);
     const projectStructure = await resolveProjectStructure(options);
+    const srcFolders = await resolveSrcFolders(options, projectStructure, projectRuntime);
 
     console.log("\ncoreplate project setup");
     console.log(`Project name: ${options.name}`);
     console.log(`Project runtime: ${projectRuntimeLabel(projectRuntime)}`);
     console.log(`Project structure: ${projectStructureLabel(projectStructure)}`);
     printSelectionSummary(selections);
+    printSrcFolderSummary(srcFolders, projectRuntime);
 
     const outputPath = await createProject({
       projectName: options.name,
@@ -388,6 +465,7 @@ async function main(): Promise<void> {
       selectedPackages: selections,
       projectStructure,
       projectRuntime,
+      srcFolders,
     });
 
     console.log(`Project created at ${outputPath}`);

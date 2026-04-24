@@ -10,6 +10,48 @@ export type PackageSelections = {
 export type ProjectStructure = "component-based" | "feature-based" | "atomic-based";
 export type ProjectRuntime = "web" | "expo";
 
+export type SrcFolderSelections = {
+  components: boolean;
+  hooks: boolean;
+  utils: boolean;
+  types: boolean;
+  services: boolean;
+  store: boolean;
+  pages: boolean;
+  layouts: boolean;
+  lib: boolean;
+  constants: boolean;
+  context: boolean;
+  assets: boolean;
+};
+
+export const SRC_FOLDER_KEYS: ReadonlyArray<keyof SrcFolderSelections> = [
+  "components", "hooks", "utils", "types", "services",
+  "store", "pages", "layouts", "lib", "constants", "context", "assets",
+];
+
+export function defaultSrcFolders(structure: ProjectStructure): SrcFolderSelections {
+  if (structure === "atomic-based") {
+    return {
+      components: true, hooks: true, utils: true, types: true,
+      services: true, store: true, pages: true, layouts: false,
+      lib: false, constants: false, context: false, assets: false,
+    };
+  }
+  if (structure === "feature-based") {
+    return {
+      components: false, hooks: false, utils: false, types: false,
+      services: false, store: false, pages: true, layouts: false,
+      lib: false, constants: false, context: false, assets: false,
+    };
+  }
+  return {
+    components: true, hooks: true, utils: true, types: true,
+    services: true, store: true, pages: true, layouts: true,
+    lib: false, constants: false, context: false, assets: false,
+  };
+}
+
 const DEFAULT_SELECTIONS: PackageSelections = {
   axios: true,
   zustand: true,
@@ -25,6 +67,7 @@ export function projectFiles(
   selectedPackages?: Partial<PackageSelections>,
   projectStructure?: ProjectStructure,
   projectRuntime?: ProjectRuntime,
+  srcFolders?: Partial<SrcFolderSelections>,
 ): TemplateMap {
   const selections: PackageSelections = { ...DEFAULT_SELECTIONS, ...selectedPackages };
   const resolvedStructure = projectStructure ?? DEFAULT_PROJECT_STRUCTURE;
@@ -59,51 +102,61 @@ export function projectFiles(
     ".github/copilot-instructions.md": appCopilotInstructions(),
     "skills/frontend-architecture.md": appSkillFrontendArchitecture(),
     "skills/data-fetching.md": appSkillDataFetching(),
-    ...structureDraftFiles(resolvedStructure, resolvedRuntime),
+    ...structureDraftFiles(resolvedStructure, resolvedRuntime, {
+      ...defaultSrcFolders(resolvedStructure),
+      ...srcFolders,
+    }),
   };
 }
 
-function structureDraftFiles(projectStructure: ProjectStructure, runtime: ProjectRuntime): TemplateMap {
+function structureDraftFiles(
+  projectStructure: ProjectStructure,
+  runtime: ProjectRuntime,
+  srcFolders: SrcFolderSelections,
+): TemplateMap {
   const routeFolder = runtime === "expo" ? "screens" : "pages";
+  const files: TemplateMap = {};
 
-  if (projectStructure === "component-based") {
-    return {
-      "src/components/.gitkeep": "",
-      "src/layouts/.gitkeep": "",
-      [`src/${routeFolder}/.gitkeep`]: "",
-      "src/hooks/.gitkeep": "",
-      "src/services/.gitkeep": "",
-      "src/store/.gitkeep": "",
-      "src/types/.gitkeep": "",
-      "src/utils/.gitkeep": "",
-    };
+  if (projectStructure === "feature-based") {
+    if (srcFolders.pages) files[`src/${routeFolder}/.gitkeep`] = "";
+    files["src/features/auth/components/.gitkeep"] = "";
+    files["src/features/auth/hooks/.gitkeep"] = "";
+    files["src/features/auth/services/.gitkeep"] = "";
+    files["src/features/dashboard/components/.gitkeep"] = "";
+    files["src/features/dashboard/hooks/.gitkeep"] = "";
+    files["src/shared/components/.gitkeep"] = "";
+    files["src/shared/hooks/.gitkeep"] = "";
+    files["src/shared/lib/.gitkeep"] = "";
+    files["src/shared/types/.gitkeep"] = "";
+    return files;
   }
 
   if (projectStructure === "atomic-based") {
-    return {
-      "src/components/atoms/.gitkeep": "",
-      "src/components/molecules/.gitkeep": "",
-      "src/components/organisms/.gitkeep": "",
-      "src/components/templates/.gitkeep": "",
-      [`src/${routeFolder}/.gitkeep`]: "",
-      "src/features/.gitkeep": "",
-      "src/services/.gitkeep": "",
-      "src/store/.gitkeep": "",
-    };
+    if (srcFolders.components) {
+      files["src/components/atoms/.gitkeep"] = "";
+      files["src/components/molecules/.gitkeep"] = "";
+      files["src/components/organisms/.gitkeep"] = "";
+      files["src/components/templates/.gitkeep"] = "";
+    }
+    if (srcFolders.pages) files[`src/${routeFolder}/.gitkeep`] = "";
+    files["src/features/.gitkeep"] = "";
+  } else {
+    if (srcFolders.components) files["src/components/.gitkeep"] = "";
+    if (srcFolders.pages) files[`src/${routeFolder}/.gitkeep`] = "";
+    if (srcFolders.layouts) files["src/layouts/.gitkeep"] = "";
   }
 
-  return {
-    [`src/${routeFolder}/.gitkeep`]: "",
-    "src/features/auth/components/.gitkeep": "",
-    "src/features/auth/hooks/.gitkeep": "",
-    "src/features/auth/services/.gitkeep": "",
-    "src/features/dashboard/components/.gitkeep": "",
-    "src/features/dashboard/hooks/.gitkeep": "",
-    "src/shared/components/.gitkeep": "",
-    "src/shared/hooks/.gitkeep": "",
-    "src/shared/lib/.gitkeep": "",
-    "src/shared/types/.gitkeep": "",
-  };
+  if (srcFolders.hooks) files["src/hooks/.gitkeep"] = "";
+  if (srcFolders.services) files["src/services/.gitkeep"] = "";
+  if (srcFolders.store) files["src/store/.gitkeep"] = "";
+  if (srcFolders.types) files["src/types/.gitkeep"] = "";
+  if (srcFolders.utils) files["src/utils/.gitkeep"] = "";
+  if (srcFolders.lib) files["src/lib/.gitkeep"] = "";
+  if (srcFolders.constants) files["src/constants/.gitkeep"] = "";
+  if (srcFolders.context) files["src/context/.gitkeep"] = "";
+  if (srcFolders.assets) files["src/assets/.gitkeep"] = "";
+
+  return files;
 }
 
 function appPackageJson(projectName: string, selections: PackageSelections): string {
